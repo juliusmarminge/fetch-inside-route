@@ -1,9 +1,9 @@
-export const GET = async (req: Request) => {
-  return new Response("Hello world!", { status: 200 });
-};
+export const runtime = "edge";
+// export const runtime = "nodejs";
 
 async function devHook() {
   console.log("Simulating dev hook...");
+  console.time("hook fetch time");
   const response = await fetch("http://localhost:3000/api", {
     method: "POST",
     body: JSON.stringify({ bar: "baz" }),
@@ -11,10 +11,14 @@ async function devHook() {
       "x-my-hook": "foo",
     },
   });
+  console.timeEnd("hook fetch time");
 
-  const text = await response.text();
-  console.log("hook returned", response.status, text);
-  if (response.ok) {
+  console.log("hook returned", response.status, `"${await response.text()}"`);
+  if (
+    response.ok &&
+    response.status < 400 &&
+    response.headers.has("x-api-version")
+  ) {
     console.log("hook success");
   } else {
     console.log("hook failed");
@@ -28,7 +32,10 @@ export const POST = async (req: Request) => {
   if (hook) {
     const json = await req.json();
     console.log("RUNNING OUR HOOK", json);
-    return new Response(JSON.stringify(json), { status: 200 });
+    return new Response(JSON.stringify(json), {
+      status: 200,
+      headers: { "x-api-version": "1.0.0" },
+    });
 
     // do the actual thing
   }
@@ -41,8 +48,14 @@ export const POST = async (req: Request) => {
         await devHook();
       }
 
-      return new Response("Uploaded!", { status: 200 });
+      return new Response("Uploaded!", {
+        status: 200,
+        headers: { "x-api-version": "1.0" },
+      });
     }
   }
-  return new Response("Hello world!", { status: 200 });
+  return new Response("Hello world!", {
+    status: 200,
+    headers: { "x-api-version": "1.0" },
+  });
 };
